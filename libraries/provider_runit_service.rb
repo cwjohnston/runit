@@ -50,6 +50,24 @@ class Chef
 
       # actions
       action :create do
+        ruby_block "restart_#{new_resource.name}_service" do
+          block do
+            action_enable
+            restart_service
+          end
+          action :nothing
+          only_if { new_resource.restart_on_update }
+        end
+
+        ruby_block "restart_#{new_resource.name}_log_service" do
+          block do
+            action_enable
+            restart_log_service
+          end
+          action :nothing
+          only_if { new_resource.restart_on_update }
+        end
+
         # sv_templates
         if new_resource.sv_templates
 
@@ -68,6 +86,7 @@ class Chef
             cookbook template_cookbook
             mode '0755'
             variables(options: new_resource.options)
+            notifies :run, "ruby_block[restart_#{new_resource.name}_service]", :delayed
             action :create
           end
 
@@ -116,6 +135,7 @@ class Chef
                 owner new_resource.owner
                 group new_resource.group
                 mode '00755'
+                notifies :run, "ruby_block[restart_#{new_resource.name}_log_service]", :delayed
                 action :create
               end
             else
@@ -126,6 +146,7 @@ class Chef
                 source "sv-#{new_resource.log_template_name}-log-run.erb"
                 cookbook template_cookbook
                 variables(options: new_resource.options)
+                notifies :run, "ruby_block[restart_#{new_resource.name}_log_service]", :delayed
                 action :create
               end
             end
@@ -146,6 +167,7 @@ class Chef
               group new_resource.group
               content value
               mode 00640
+              notifies :run, "ruby_block[restart_#{new_resource.name}_service]", :delayed
               action :create
             end
           end
@@ -153,6 +175,7 @@ class Chef
           ruby_block "zap extra env files for #{new_resource.name} service" do
             block { zap_extra_env_files }
             only_if { new_resource.manage_env_dir && extra_env_files? }
+            notifies :run, "ruby_block[restart_#{new_resource.name}_service]", :delayed
             action :run
           end
 
