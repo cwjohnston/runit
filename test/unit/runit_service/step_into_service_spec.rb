@@ -93,10 +93,22 @@ describe 'runit_service' do
     let(:service_servicedir) { ::File.join(service_dir, service.name) }
     let(:service_options) { Hash.new }
 
+    let(:service_run_script) { chef_run.template("#{service_svdir}/run") }
+    let(:service_log_script) { chef_run.template("#{service_svdir}/log/run") }
+
     it_behaves_like 'runit_service with logging'
+
 
     it 'does not zap extra env files' do
       expect(chef_run).to_not run_ruby_block('zap extra env files for plain-defaults service')
+    end
+    
+    it 'signals the service to restart when the service run script is updated' do
+      expect(service_run_script).to notify("ruby_block[restart_#{service.name}_service]").to(:run).delayed
+    end
+
+    it 'signals the log service to restart when the log service script is updated' do
+      expect(service_log_script).to notify("ruby_block[restart_#{service.name}_log_service]").to(:run).delayed
     end
   end
 
@@ -123,6 +135,8 @@ describe 'runit_service' do
     let(:service_svdir) { ::File.join(sv_dir, service.name) }
     let(:service_servicedir) { ::File.join(service_dir, service.name) }
     let(:service_options) { Hash.new }
+    let(:service_run_script) { chef_run.template("#{service_svdir}/run") }
+    let(:service_log_script) { chef_run.file("#{service_svdir}/log/run") }
 
     it_behaves_like 'runit_service with logging'
 
@@ -145,6 +159,14 @@ describe 'runit_service' do
       expect(chef_run).to create_link("/var/log/#{service.name}/config").with(
         to: ::File.join(service_svdir, 'log', 'config')
       )
+    end
+
+    it 'signals the service to restart' do
+      expect(service_run_script).to notify("ruby_block[restart_#{service.name}_service]").to(:run).delayed
+    end
+
+    it 'signals the log service to restart' do
+      expect(service_log_script).to notify("ruby_block[restart_#{service.name}_log_service]").to(:run).delayed
     end
   end
 
@@ -254,6 +276,25 @@ describe 'runit_service' do
         cookbook: 'runit_test',
         variables: { options: {} }
       )
+    end
+  end
+
+  context 'with restart_on_update set to false' do
+    let(:service) { chef_run.runit_service('checker') }
+    let(:service_svdir) { ::File.join(sv_dir, service.name) }
+    let(:service_servicedir) { ::File.join(service_dir, service.name) }
+    let(:service_options) { Hash.new }
+    let(:service_run_block) { chef_run.ruby_block("restart_#{service.name}_service") }
+    let(:service_log_block) { chef_run.ruby_block("restart_#{service.name}_log_service") }
+
+    it_behaves_like 'runit_service with logging'
+
+    it 'does not restart the service when the service run script is updated' do
+      expect(service_run_block).to do_nothing
+    end
+
+    it 'does not restart the log service when the log service run script is updated' do
+      expect(service_log_block).to do_nothing
     end
   end
 end

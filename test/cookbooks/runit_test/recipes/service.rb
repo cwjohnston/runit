@@ -86,6 +86,7 @@ end
 # Create a service that has a check script
 runit_service 'checker' do
   check true
+  restart_on_update false
 end
 
 # Create a service that has a finish script
